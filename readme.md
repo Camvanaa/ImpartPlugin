@@ -1,6 +1,6 @@
 # koishi-plugin-impart
 
-![DickFighterBot](https://socialify.git.ci/Camvanaa/ImpartPlugin/image?font=Inter&language=1&name=1&owner=1&pattern=Charlie+Brown&stargazers=1&theme=Auto)
+![Github](https://socialify.git.ci/Camvanaa/ImpartPlugin/image?font=Inter&language=1&name=1&owner=1&pattern=Charlie+Brown&stargazers=1&theme=Auto)
 
 ## 简介
 
@@ -15,4 +15,11 @@ koishi-plugin-impart 是一个有趣的 Koishi 虚拟养成插件，让用户可
 - 🔋 **体力系统**：管理牛子能量，每6分钟自动恢复1点体力
 - 🎭 **随机事件**：锻炼和战斗中可能发生各种有趣的随机事件
 
-## 安装
+## ⚙️ 安装
+koishi插件市场直接安装呐
+
+## 🤝 贡献
+欢迎提交 Issues 和 Pull Requests 来帮助改进插件！
+
+## 📜 鸣谢
+基础功能复刻自 [DickFighterBot](https://github.com/zzzdajb/DickFighterBot/tree/master)
