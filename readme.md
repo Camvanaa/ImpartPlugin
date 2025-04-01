@@ -1,6 +1,6 @@
 # koishi-plugin-impart
 
-![DickFighterBot](https://socialify.git.ci/zzzdajb/DickFighterBot/image?font=Inter&language=1&name=1&owner=1&pattern=Charlie+Brown&stargazers=1&theme=Auto)
+![DickFighterBot](https://socialify.git.ci/Camvanaa/ImpartPlugin/image?font=Inter&language=1&name=1&owner=1&pattern=Charlie+Brown&stargazers=1&theme=Auto)
 
 ## 简介
 
