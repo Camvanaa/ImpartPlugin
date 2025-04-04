@@ -27,17 +27,35 @@ interface DickCoffee {
   lastDrinkTime: number
 }
 
+// 物品类型枚举
+export enum ItemType {
+  TRUTH_DICK = 'truth_dick',
+  // 后续可以添加更多物品类型
+}
+
+// 仓库物品接口
+interface InventoryItem {
+  id: number
+  userId: string
+  groupId: string
+  itemType: ItemType
+  quantity: number
+}
+
 export class Database {
   private logger: Logger
   private dataDir: string
   private basicInfoPath: string
   private energyPath: string
   private coffeePath: string
+  private inventoryPath: string
   
   // 内存中缓存的数据
   private dickBasicInfos: DickBasicInfo[] = []
   private dickEnergies: DickEnergy[] = []
   private dickCoffees: DickCoffee[] = []
+  private nextInventoryId: number = 1
+  private inventoryItems: InventoryItem[] = []
   
   private nextBasicInfoId = 1
   private nextEnergyId = 1
@@ -51,6 +69,7 @@ export class Database {
     this.basicInfoPath = path.join(this.dataDir, 'dick_basic_info.json')
     this.energyPath = path.join(this.dataDir, 'dick_energy.json')
     this.coffeePath = path.join(this.dataDir, 'dick_coffee.json')
+    this.inventoryPath = path.join(this.dataDir, 'inventory.json')
     
     // 初始化数据
     this.initializeData()
@@ -103,6 +122,20 @@ export class Database {
         this.dickCoffees = []
         await this.saveCoffees()
       }
+      
+      // 尝试加载仓库数据
+      try {
+        const inventoryData = await fs.readFile(this.inventoryPath, 'utf-8')
+        this.inventoryItems = JSON.parse(inventoryData)
+        
+        if (this.inventoryItems.length > 0) {
+          this.nextInventoryId = Math.max(...this.inventoryItems.map(i => i.id)) + 1
+        }
+      } catch (e) {
+        // 文件不存在，创建初始数据
+        this.inventoryItems = []
+        await this.saveInventory()
+      }
     } catch (e) {
       this.logger.error('初始化数据失败:', e)
     }
@@ -118,6 +151,10 @@ export class Database {
   
   private async saveCoffees() {
     await fs.writeFile(this.coffeePath, JSON.stringify(this.dickCoffees, null, 2))
+  }
+  
+  private async saveInventory() {
+    await fs.writeFile(this.inventoryPath, JSON.stringify(this.inventoryItems, null, 2))
   }
   
   // 获取牛子信息
@@ -445,5 +482,122 @@ export class Database {
       
       return dick
     }))
+  }
+
+  // 在Database类中添加
+  async resetDick(userId: string, groupId: string): Promise<boolean> {
+    try {
+      // 查找该用户在指定群的牛子
+      const dickIndex = this.dickBasicInfos.findIndex(d => 
+        d.belongings === userId && d.groupNumber === groupId
+      );
+      
+      if (dickIndex === -1) {
+        return false; // 没有找到要重置的牛子
+      }
+      
+      // 记录牛子guid，用于删除能量记录
+      const dickGuid = this.dickBasicInfos[dickIndex].guid;
+      
+      // 从dickBasicInfos数组中移除
+      this.dickBasicInfos.splice(dickIndex, 1);
+      
+      // 同时需要清理对应的能量记录和咖啡记录
+      this.removeEnergyRecord(dickGuid);
+      this.removeCoffeeRecord(dickGuid);
+      
+      // 保存更新后的数据
+      await this.saveBasicInfos();
+      
+      return true;
+    } catch (error) {
+      console.error('Reset dick error:', error);
+      return false;
+    }
+  }
+
+  // 删除能量记录
+  private removeEnergyRecord(dickGuid: string): void {
+    const index = this.dickEnergies.findIndex(e => e.dickGuid === dickGuid);
+    if (index !== -1) {
+      this.dickEnergies.splice(index, 1);
+      this.saveEnergies(); // 使用正确的方法名
+    }
+  }
+
+  // 删除咖啡记录
+  private removeCoffeeRecord(dickGuid: string): void {
+    const index = this.dickCoffees.findIndex(c => c.guid === dickGuid);
+    if (index !== -1) {
+      this.dickCoffees.splice(index, 1);
+      this.saveCoffees(); // 使用正确的方法名
+    }
+  }
+
+  // 检查用户是否拥有指定物品
+  async hasItem(userId: string, groupId: string, itemType: ItemType): Promise<boolean> {
+    const item = this.inventoryItems.find(i => 
+      i.userId === userId && 
+      i.groupId === groupId && 
+      i.itemType === itemType
+    )
+    return item?.quantity > 0
+  }
+  
+  // 添加物品到用户仓库
+  async addItem(userId: string, groupId: string, itemType: ItemType, quantity: number = 1): Promise<boolean> {
+    try {
+      let item = this.inventoryItems.find(i => 
+        i.userId === userId && 
+        i.groupId === groupId && 
+        i.itemType === itemType
+      )
+      
+      if (item) {
+        item.quantity += quantity
+      } else {
+        item = {
+          id: this.nextInventoryId++,
+          userId,
+          groupId,
+          itemType,
+          quantity
+        }
+        this.inventoryItems.push(item)
+      }
+      
+      await this.saveInventory()
+      return true
+    } catch (e) {
+      this.logger.error('添加物品失败:', e)
+      return false
+    }
+  }
+  
+  // 从用户仓库移除物品
+  async removeItem(userId: string, groupId: string, itemType: ItemType, quantity: number = 1): Promise<boolean> {
+    try {
+      const item = this.inventoryItems.find(i => 
+        i.userId === userId && 
+        i.groupId === groupId && 
+        i.itemType === itemType
+      )
+      
+      if (!item || item.quantity < quantity) {
+        return false
+      }
+      
+      item.quantity -= quantity
+      await this.saveInventory()
+      return true
+    } catch (e) {
+      this.logger.error('移除物品失败:', e)
+      return false
+    }
+  }
+  
+  // 获取用户仓库物品列表
+  async getInventory(userId: string, groupId: string): Promise<InventoryItem[]> {
+    return this.inventoryItems.filter(i => i.userId === userId && i.groupId === groupId)
   }
 } 

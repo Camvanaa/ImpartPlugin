@@ -1,6 +1,7 @@
 import { SpecialDick } from './base'
 import { Dick } from '../dick'
 import { Database } from '../../database'
+import { getDickName } from '../../function'
 
 function getRandomDouble(min: number = 0, max: number = 1): number {
   return Math.random() * (max - min) + min
@@ -88,13 +89,18 @@ export class TruthDick extends SpecialDick {
     lengthDifference: number,
     winnerGet: number
   ): string {
-    return `<at id="${this.dick.belongings}"/>，你花费${this.energyCost}体力，尝试使用试用牛子"${this.name}"对全服的随机牛子发动追加攻击！
-根据星际牛子公司测算，本次追加攻击发动的概率为${successRate * 100}%。天有不测风云，牛有旦夕祸福。${enemyDick.belongings}的牛子[${enemyDick.nickName}]受到了你的攻击!该牛子的长度从${enemyOldLength.toFixed(2)}cm变化为${newLength.toFixed(2)}cm，长度变化为${lengthDifference.toFixed(2)}cm。
-在追加攻击发动的同时，你的牛子[${this.dick.nickName}]掠夺了${winnerGet.toFixed(2)}cm的长度，当前长度为${this.dick.length.toFixed(2)}cm。`
+    const myDickName = getDickName(this.dick.length)
+    const enemyDickName = getDickName(enemyDick.length)
+    
+    return `<at id="${this.dick.belongings}"/>，你花费${this.energyCost}体力，尝试使用试用${myDickName}"${this.name}"对全服的随机${enemyDickName}发动追加攻击！
+根据星际${myDickName}公司测算，本次追加攻击发动的概率为${successRate * 100}%。天有不测风云，牛有旦夕祸福。${enemyDick.belongings}的${enemyDickName}[${enemyDick.nickName}]受到了你的攻击!该${enemyDickName}的长度从${enemyOldLength.toFixed(2)}cm变化为${newLength.toFixed(2)}cm，长度变化为${lengthDifference.toFixed(2)}cm。
+在追加攻击发动的同时，你的${myDickName}[${this.dick.nickName}]掠夺了${winnerGet.toFixed(2)}cm的长度，当前长度为${this.dick.length.toFixed(2)}cm。`
   }
   
   private getFailureMessage(successRate: number): string {
-    return `<at id="${this.dick.belongings}"/>，你花费${this.energyCost}体力，尝试使用试用牛子"${this.name}"对全服的随机牛子发动追加攻击！
-根据星际牛子公司测算，本次追加攻击发动的概率为${successRate * 100}%。天有不测风云，牛有旦夕祸福。然而，你的牛子的追加攻击并没有生效，全服没有任何牛子发生了变化，仅仅是你损失了一些体力而已。`
+    const dickName = getDickName(this.dick.length)
+    
+    return `<at id="${this.dick.belongings}"/>，你花费${this.energyCost}体力，尝试使用试用${dickName}"${this.name}"对全服的随机${dickName}发动追加攻击！
+根据星际${dickName}公司测算，本次追加攻击发动的概率为${successRate * 100}%。天有不测风云，牛有旦夕祸福。然而，你的${dickName}的追加攻击并没有生效，全服没有任何${dickName}发生了变化，仅仅是你损失了一些体力而已。`
   }
 } 

@@ -4,6 +4,8 @@ import { Dick } from './models/dick'
 import { FightCalculator } from './models/fightCalculator'
 import { randomUUID } from 'crypto'
 import { TruthDick } from './models/special-dicks/truth-dick'
+import { getDickName, getRandomDouble } from './function'
+import { ItemType } from './database/index'
 
 // 插件导出定义
 export const name = 'impart'
@@ -18,9 +20,6 @@ declare module 'koishi' {
 
 // 配置接口
 export interface Config {
-  mainSettings: {
-    interval: number
-  }
   dickData: {
     fightEnergyCost: number
     exerciseEnergyCost: number
@@ -29,16 +28,10 @@ export interface Config {
     groupRankTopCount: number
     globalRankTopCount: number
   }
-  management: {
-    administrator: number
-  }
 }
 
 // 默认配置
 export const Config: Schema<Config> = Schema.object({
-  mainSettings: Schema.object({
-    interval: Schema.number().default(5000).description('操作间隔时间(毫秒)'),
-  }),
   dickData: Schema.object({
     fightEnergyCost: Schema.number().default(40).description('斗牛消耗体力'),
     exerciseEnergyCost: Schema.number().default(10).description('锻炼消耗体力'),
@@ -46,16 +39,8 @@ export const Config: Schema<Config> = Schema.object({
   rank: Schema.object({
     groupRankTopCount: Schema.number().default(3).description('群排行显示数量'),
     globalRankTopCount: Schema.number().default(3).description('全服排行显示数量'),
-  }),
-  management: Schema.object({
-    administrator: Schema.number().default(393098870).description('管理员QQ'),
-  }),
+  })
 })
-
-// 工具函数
-function getRandomDouble(min: number = 0, max: number = 1): number {
-  return Math.random() * (max - min) + min
-}
 
 // 插件主体
 export function apply(ctx: Context, config: Config) {
@@ -82,27 +67,6 @@ export function apply(ctx: Context, config: Config) {
     }
   }, energyRecoveryInterval)
   
-  // 直接注册命令，不使用依赖注入
-  ctx.command('dick.help', '牛子系统')
-    .action(async ({ session }) => {
-      const helpMessage = `牛子系统指令列表：
-1. dick.help：展示帮助菜单
-2. dick.exercise <次数>：消耗体力锻炼牛子，可能增加或者减少长度
-3. dick.fight：消耗体力进行跨服牛子PK，可能增加或者减少长度
-4. dick.groupfight：消耗更多体力进行群内斗牛
-5. dick.rename <新名字>：修改牛子的名字
-6. dick.info：查询自己的牛子信息
-7. dick.rank [group|global]：查看群内/全服牛子榜单
-8. dick.coffee：饮用咖啡回复体力，每20小时可以饮用一次
-9. dick.truth：使用真理牛子进行追加攻击，花费大量体力对随机牛子发动追加攻击，一旦成功，对方牛子将会被取对数，自己也会获得一部分收益
-10. dick.generate：生成一个牛子
-11. dick.status：查看系统状态
-
-牛子系统正在升级，敬请期待！`
-      
-      await session.send(helpMessage)
-    })
-  
   ctx.command('dick.info', '查看牛子信息')
   .action(async ({ session }) => {
         if (!session.guildId || !session.userId) return
@@ -112,11 +76,12 @@ export function apply(ctx: Context, config: Config) {
           return
         }
         
+        const dickName = getDickName(dick.length)
         const ranks = await db.getLengthRanks(dick.guid, session.guildId)
         const message = `基本信息：
-<at id="${session.userId}"/>，你的牛子"${dick.nickName}"，目前长度为${dick.length.toFixed(1)}cm，当前体力状况：[${dick.energy}/240]
+<at id="${session.userId}"/>，你的${dickName}"${dick.nickName}"，目前长度为${dick.length.toFixed(1)}cm，当前体力状况：[${dick.energy}/240]
 排名信息：
-牛子群内排名：[${ranks.groupRank}/${ranks.groupTotal}]名；牛子全服排名：[${ranks.globalRank}/${ranks.globalTotal}]名`
+${dickName}群内排名：[${ranks.groupRank}/${ranks.groupTotal}]名；${dickName}全服排名：[${ranks.globalRank}/${ranks.globalTotal}]名`
         
         await session.send(message)
       })
@@ -129,7 +94,8 @@ export function apply(ctx: Context, config: Config) {
         // 检查是否已有牛子
         const existingDick = await db.getDickWithIds(session.userId, session.guildId)
         if (existingDick) {
-          await session.send(`<at id="${session.userId}"/>，你已经有了一只牛子，请不要贪心！`)
+          const dickName = getDickName(existingDick.length)
+          await session.send(`<at id="${session.userId}"/>，你已经有了一个${dickName}，请不要贪心！`)
           return
         }
         
@@ -145,13 +111,14 @@ export function apply(ctx: Context, config: Config) {
         const success = await db.generateNewDick(session.userId, session.guildId, newDick)
         
         if (!success) {
-          throw new Error('生成牛子失败')
+          throw new Error('生成失败')
         }
         
-        await session.send(`<at id="${session.userId}"/>，你的牛子[${newDick.guid}]已经成功生成，初始长度为${newDick.length.toFixed(3)}cm。\n初始生成的牛子默认拥有240点体力，请及时使用，防止体力溢出！你可以使用"dick.rename <新名字>"指令来更改牛子的姓名。`)
+        const dickName = getDickName(newDick.length)
+        await session.send(`<at id="${session.userId}"/>，你的${dickName}[${newDick.guid}]已经成功生成，初始长度为${newDick.length.toFixed(3)}cm。\n初始生成的${dickName}默认拥有240点体力，请及时使用，防止体力溢出！你可以使用"dick.rename <新名字>"指令来更改${dickName}的姓名。`)
       } catch (e) {
-        ctx.logger.error('生成牛子时发生错误:', e)
-        await session.send(`<at id="${session.userId}"/>，生成牛子时发生错误，请稍后再试！`)
+        ctx.logger.error('生成时发生错误:', e)
+        await session.send(`<at id="${session.userId}"/>，生成时发生错误，请稍后再试！`)
       }
     })
     
@@ -165,7 +132,8 @@ export function apply(ctx: Context, config: Config) {
         return
       }
       
-      const result = await dick.fight(db)
+      const dickName = getDickName(dick.length)
+      const result = await dick.fight(db, config.dickData.fightEnergyCost)
       await session.send(result)
     })
     
@@ -182,8 +150,10 @@ export function apply(ctx: Context, config: Config) {
         return
       }
       
+      const dickName = getDickName(dick.length)
+      
       if (dick.energy < energyCost) {
-        await session.send(`<at id="${session.userId}"/>，你的牛子"${dick.nickName}"，体力值不足，无法锻炼！当前体力值为${dick.energy}/240`)
+        await session.send(`<at id="${session.userId}"/>，你的${dickName}"${dick.nickName}"，体力值不足，无法锻炼！当前体力值为${dick.energy}/240`)
         return
       }
       
@@ -199,8 +169,8 @@ export function apply(ctx: Context, config: Config) {
         // 每次锻炼的效果
         const isPositive = Math.random() > 0.5
         const perDifference = isPositive
-          ? getRandomDouble(10, 20)
-          : -getRandomDouble(5, 15)
+          ? getRandomDouble(40, 80)
+          : -getRandomDouble(20, 60)
         
         dick.length += perDifference
         totalLengthDifference += perDifference
@@ -251,14 +221,13 @@ export function apply(ctx: Context, config: Config) {
         "锻炼时，布洛妮娅的机甲意外触碰到你的牛子，强大的压力使你的牛子",
         "在锻炼中，丽塔的鞭子不小心甩到了你的牛子，这使你的牛子瞬间"
       ]
-      
       let outputMessage
       if (totalLengthDifference > 0) {
         const winMessagePart1 = winString[Math.floor(Math.random() * winString.length)]
-        outputMessage = `<at id="${session.userId}"/>，你的牛子"${dick.nickName}"消耗${energyCost}体力值完成了${exerciseTimes}次锻炼！${winMessagePart1}增长了${Math.abs(totalLengthDifference).toFixed(3)}cm，你的牛子目前长度为${dick.length.toFixed(2)}cm，体力值为${dick.energy}/240。`
+        outputMessage = `<at id="${session.userId}"/>，你的${dickName}"${dick.nickName}"消耗${energyCost}体力值完成了${exerciseTimes}次锻炼！${winMessagePart1}增长了${Math.abs(totalLengthDifference).toFixed(3)}cm，你的牛子目前长度为${dick.length.toFixed(2)}cm，体力值为${dick.energy}/240。`
       } else {
         const loseMessagePart1 = loseString[Math.floor(Math.random() * loseString.length)]
-        outputMessage = `<at id="${session.userId}"/>，你的牛子"${dick.nickName}"消耗${energyCost}体力值完成了${exerciseTimes}次锻炼！${loseMessagePart1}缩短了${Math.abs(totalLengthDifference).toFixed(3)}cm，你的牛子目前长度为${dick.length.toFixed(2)}cm，体力值为${dick.energy}/240。`
+        outputMessage = `<at id="${session.userId}"/>，你的${dickName}"${dick.nickName}"消耗${energyCost}体力值完成了${exerciseTimes}次锻炼！${loseMessagePart1}缩短了${Math.abs(totalLengthDifference).toFixed(3)}cm，你的牛子目前长度为${dick.length.toFixed(2)}cm，体力值为${dick.energy}/240。`
       }
       
       await session.send(outputMessage)
@@ -284,14 +253,15 @@ export function apply(ctx: Context, config: Config) {
         return
       }
       
+      const dickName = getDickName(dick.length)
       const oldName = dick.nickName
       dick.nickName = name
       const success = await db.updateDickNickName(session.userId, session.guildId, name)
       
       if (success) {
-        await session.send(`<at id="${session.userId}"/>，你的牛子名字已经从"${oldName}"修改为"${name}"！`)
+        await session.send(`<at id="${session.userId}"/>，你的${dickName}名字已经从"${oldName}"修改为"${name}"！`)
       } else {
-        await session.send(`<at id="${session.userId}"/>，你的牛子名字修改失败！请稍后再试！`)
+        await session.send(`<at id="${session.userId}"/>，你的${dickName}名字修改失败！请稍后再试！`)
       }
     })
     
@@ -306,7 +276,7 @@ export function apply(ctx: Context, config: Config) {
       const count = await db.getCountOfTotalDicks(isGlobal ? undefined : session.guildId)
       
       if (count <= 0) {
-        await session.send(isGlobal ? "数据库中没有足够的牛子，无法生成排名！" : "当前群内没有足够的牛子，无法生成排名！")
+        await session.send(isGlobal ? "数据库中没有足够的数据，无法生成排名！" : "当前群内没有足够的数据，无法生成排名！")
         return
       }
       
@@ -314,20 +284,22 @@ export function apply(ctx: Context, config: Config) {
       
       // 获取最长牛子排名
       const topDicks = await db.getFirstNDicksByOrder(dickCount, 0, isGlobal ? undefined : session.guildId)
-      let outputMessage = `当前排名如下：\n${isGlobal ? '全服' : '群'}最长牛子榜\n排名|昵称|长度\n`
+      let outputMessage = `当前排名如下：\n${isGlobal ? '全服' : '群'}排行榜\n排名|昵称|长度\n`
       
       for (let i = 0; i < topDicks.length; i++) {
         const dick = topDicks[i]
-        outputMessage += `${i + 1}. 牛子昵称：${dick.nickName}，长度：${dick.length.toFixed(1)}cm，主人QQ:${dick.belongings}\n`
+        const dickName = getDickName(dick.length)
+        outputMessage += `${i + 1}. ${dickName}昵称：${dick.nickName}，长度：${dick.length.toFixed(1)}cm，主人QQ:${dick.belongings}\n`
       }
       
       // 获取最短牛子排名
       const bottomDicks = await db.getFirstNDicksByOrder(dickCount, 1, isGlobal ? undefined : session.guildId)
-      outputMessage += `\n${isGlobal ? '全服' : '群'}最短牛子榜\n排名|昵称|长度\n`
+      outputMessage += `\n${isGlobal ? '全服' : '群'}最短排行榜\n排名|昵称|长度\n`
       
       for (let i = 0; i < bottomDicks.length; i++) {
         const dick = bottomDicks[i]
-        outputMessage += `${i + 1}. 牛子昵称：${dick.nickName}，长度：${dick.length.toFixed(1)}cm，主人QQ:${dick.belongings}\n`
+        const dickName = getDickName(dick.length)
+        outputMessage += `${i + 1}. ${dickName}昵称：${dick.nickName}，长度：${dick.length.toFixed(1)}cm，主人QQ:${dick.belongings}\n`
       }
       
       await session.send(outputMessage)
@@ -345,6 +317,7 @@ export function apply(ctx: Context, config: Config) {
         return
       }
       
+      const dickName = getDickName(dick.length)
       const [recordExisted, lastDrinkTimeFromDataBase] = await db.checkCoffeeInformation(dick.guid)
       
       if (!recordExisted) {
@@ -353,7 +326,7 @@ export function apply(ctx: Context, config: Config) {
         dick.energy += energyAdd
         await db.updateDickEnergy(dick.energy, dick.guid)
         
-        await session.send(`<at id="${session.userId}"/>，你的牛子[${dick.nickName}]饮用了一杯牛子咖啡，现在精神饱满，体力回复了${energyAdd}点。当前体力为${dick.energy}/240。`)
+        await session.send(`<at id="${session.userId}"/>，你的${dickName}[${dick.nickName}]饮用了一杯咖啡，现在精神饱满，体力回复了${energyAdd}点。当前体力为${dick.energy}/240。`)
         return
       }
       
@@ -369,14 +342,14 @@ export function apply(ctx: Context, config: Config) {
         dick.energy += energyAdd
         await db.updateDickEnergy(dick.energy, dick.guid)
         
-        await session.send(`<at id="${session.userId}"/>，你的牛子[${dick.nickName}]饮用了一杯牛子咖啡，现在精神饱满，体力回复了${energyAdd}点。当前体力为${dick.energy}/240。`)
+        await session.send(`<at id="${session.userId}"/>，你的${dickName}[${dick.nickName}]饮用了一杯咖啡，现在精神饱满，体力回复了${energyAdd}点。当前体力为${dick.energy}/240。`)
       } else {
         // 冷却中
         const restOfTime = new Date((nextAvailableTime - currentTime) * 1000)
         const hours = restOfTime.getUTCHours()
         const minutes = restOfTime.getUTCMinutes()
         
-        await session.send(`<at id="${session.userId}"/>，你的牛子[${dick.nickName}]今天已经饮用过一杯咖啡了，请${hours}小时${minutes}分钟后再来！`)
+        await session.send(`<at id="${session.userId}"/>，你的${dickName}[${dick.nickName}]今天已经饮用过一杯咖啡了，请${hours}小时${minutes}分钟后再来！`)
       }
     })
     
@@ -389,26 +362,75 @@ export function apply(ctx: Context, config: Config) {
         await session.send(`<at id="${session.userId}"/>，你还没有牛子，请先使用 dick.generate 生成一个！`)
         return
       }
+
+      // 检查是否拥有真理牛子物品
+      const hasTruthDick = await db.hasItem(session.userId, session.guildId, ItemType.TRUTH_DICK)
+      if (!hasTruthDick) {
+        await session.send(`<at id="${session.userId}"/>，你的仓库中没有真理牛子！`)
+        return
+      }
       
       const truthDick = new TruthDick(dick)
       const result = await truthDick.execute(db)
       await session.send(result)
     })
     
-    ctx.command('dick.status', '查看系统状态')
+    // 添加获取真理牛子的命令
+    ctx.command('dick.obtainTruth', '获取真理牛子')
     .action(async ({ session }) => {
-      if (!session.guildId) return
+      if (!session.guildId || !session.userId) return
       
-      const startTime = new Date().getTime() - process.uptime() * 1000
-      const uptime = new Date().getTime() - startTime
+      const dick = await db.getDickWithIds(session.userId, session.guildId)
+      if (!dick) {
+        await session.send(`<at id="${session.userId}"/>，你还没有牛子，请先使用 dick.generate 生成一个！`)
+        return
+      }
+
+      // 检查是否已经拥有真理牛子
+      const hasTruthDick = await db.hasItem(session.userId, session.guildId, ItemType.TRUTH_DICK)
+      if (hasTruthDick) {
+        await session.send(`<at id="${session.userId}"/>，你已经拥有真理牛子了！`)
+        return
+      }
+
+      // 检查体力是否足够
+      if (dick.energy < 240) {
+        await session.send(`<at id="${session.userId}"/>，获取真理牛子需要240点体力！当前体力：${dick.energy}/240`)
+        return
+      }
+
+      // 扣除体力并获取真理牛子
+      dick.energy -= 240
+      await db.updateDickEnergy(dick.energy, dick.guid)
+      const success = await db.addItem(session.userId, session.guildId, ItemType.TRUTH_DICK)
+
+      if (success) {
+        await session.send(`<at id="${session.userId}"/>，你成功获得了真理牛子！当前体力：${dick.energy}/240`)
+      } else {
+        await session.send(`<at id="${session.userId}"/>，获取真理牛子失败，请稍后再试！`)
+      }
+    })
+
+    // 添加查看仓库命令
+    ctx.command('dick.inventory', '查看仓库物品')
+    .action(async ({ session }) => {
+      if (!session.guildId || !session.userId) return
       
-      const days = Math.floor(uptime / (1000 * 60 * 60 * 24))
-      const hours = Math.floor((uptime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      const minutes = Math.floor((uptime % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((uptime % (1000 * 60)) / 1000)
+      const inventory = await db.getInventory(session.userId, session.guildId)
+      if (inventory.length === 0) {
+        await session.send(`<at id="${session.userId}"/>，你的仓库是空的！`)
+        return
+      }
       
-      const outputMessage = `牛子系统正在运行！\n已运行时间：${days}天${hours}小时${minutes}分钟${seconds}秒`
-      await session.send(outputMessage)
+      let message = `<at id="${session.userId}"/>，你的仓库中有：\n`
+      for (const item of inventory) {
+        if (item.quantity > 0) {
+          const itemName = item.itemType === ItemType.TRUTH_DICK ? '真理牛子' : '未知物品'
+          message += `${itemName}: ${item.quantity}个\n`
+        }
+      }
+      
+      await session.send(message)
     })
     
     // 管理员命令，使用Koishi的权限系统
@@ -448,60 +470,74 @@ export function apply(ctx: Context, config: Config) {
           return
         }
         
-        // 此处需要添加重置用户牛子的逻辑
-        await session.send(`用户 ${userId} 的牛子重置功能即将开发，敬请期待！`)
+        try {
+          // 检查目标用户是否有牛子
+          const targetDick = await db.getDickWithIds(userId, session.guildId)
+          if (!targetDick) {
+            await session.send(`用户 ${userId} 在当前群中没有牛子/小穴！`)
+            return
+          }
+          
+          const dickName = getDickName(targetDick.length)
+          
+          // 执行重置
+          const resetSuccess = await db.resetDick(userId, session.guildId)
+          
+          if (resetSuccess) {
+            await session.send(`管理员已重置用户 ${userId} 的${dickName}"${targetDick.nickName}"，该用户现在可以重新生成牛子/小穴。`)
+          } else {
+            await session.send(`重置失败，请稍后再试或联系开发者检查系统日志。`)
+          }
+        } catch (error) {
+          ctx.logger.error('重置牛子时发生错误:', error)
+          await session.send(`操作过程中发生错误，请稍后再试！`)
+        }
       })
+
+    ctx.command('dick.reset', '重置用户自己的牛子')
+    .action(async ({ session }) => {
+      if (!session.guildId || !session.userId) return
+      
+      const dick = await db.getDickWithIds(session.userId, session.guildId)
+      if (!dick) {
+        await session.send(`<at id="${session.userId}"/>，你还没有牛子，不需要重置！`)
+        return
+      }
+      
+      const dickName = getDickName(dick.length)
+      
+      // 检查体力是否足够
+      if (dick.energy < 240) {
+        await session.send(`<at id="${session.userId}"/>，你的${dickName}"${dick.nickName}"体力不足，需要240点体力才能重置！当前体力：${dick.energy}/240`)
+        return
+      }
+      
+      try {
+        // 执行重置
+        const resetSuccess = await db.resetDick(session.userId, session.guildId)
+        
+        if (resetSuccess) {
+          await session.send(`<at id="${session.userId}"/>，你的${dickName}"${dick.nickName}"已被重置，现在你可以使用 dick.generate 命令重新生成牛子。`)
+        } else {
+          await session.send(`<at id="${session.userId}"/>，重置失败，请稍后再试！`)
+        }
+      } catch (error) {
+        ctx.logger.error('用户重置牛子时发生错误:', error)
+        await session.send(`<at id="${session.userId}"/>，操作过程中发生错误，请稍后再试！`)
+      }
+    })
 
     ctx.command('dick.groupfight', '在群内进行斗牛')
     .action(async ({ session }) => {
       if (!session.guildId || !session.userId) return
       
-      const energyCost = config.dickData.fightEnergyCost * 1.5 // 群内斗牛消耗更多体力
-      
-      // 获取用户的牛子
       const userDick = await db.getDickWithIds(session.userId, session.guildId)
       if (!userDick) {
         await session.send(`<at id="${session.userId}"/>，你还没有牛子，请先使用 dick.generate 生成一个！`)
         return
       }
       
-      // 检查体力是否足够
-      if (userDick.energy < energyCost) {
-        await session.send(`<at id="${session.userId}"/>，你的牛子"${userDick.nickName}"体力不足，无法进行群内斗牛！当前体力：${userDick.energy}/240，需要体力：${energyCost}`)
-        return
-      }
-      
-      // 获取群内其他牛子
-      const groupDicks = await db.getDicksInGroup(session.guildId)
-      const opponentDicks = groupDicks.filter(d => d.belongings !== session.userId)
-      
-      if (opponentDicks.length === 0) {
-        await session.send(`<at id="${session.userId}"/>，当前群内没有其他牛子，无法进行群内斗牛！`)
-        return
-      }
-      
-      // 随机选择一个对手
-      const opponentDick = opponentDicks[Math.floor(Math.random() * opponentDicks.length)]
-      
-      // 计算战斗结果，沿用现有计算方法
-      const differenceValue = userDick.length - opponentDick.length
-      const result = FightCalculator.calculate(userDick.length, opponentDick.length, differenceValue)
-      
-      // 扣除体力
-      userDick.energy -= energyCost
-      await db.updateDickEnergy(userDick.energy, userDick.guid)
-      
-      // 更新双方牛子长度
-      userDick.length += result.challengerChange
-      opponentDick.length += result.defenderChange
-      await db.updateDickLength(userDick.length, userDick.guid)
-      await db.updateDickLength(opponentDick.length, opponentDick.guid)
-      
-      // 返回战斗结果
-      const resultMessage = result.isWin
-        ? `<at id="${session.userId}"/>，你的牛子"${userDick.nickName}"在群内斗牛中战胜了"${opponentDick.nickName}"！\n你的牛子增长了${result.challengerChange.toFixed(2)}cm，现在长度为${userDick.length.toFixed(2)}cm，体力值为${userDick.energy}/240。\n对方的牛子缩短了${Math.abs(result.defenderChange).toFixed(2)}cm，现在长度为${opponentDick.length.toFixed(2)}cm。`
-        : `<at id="${session.userId}"/>，你的牛子"${userDick.nickName}"在群内斗牛中败给了"${opponentDick.nickName}"！\n你的牛子缩短了${Math.abs(result.challengerChange).toFixed(2)}cm，现在长度为${userDick.length.toFixed(2)}cm，体力值为${userDick.energy}/240。\n对方的牛子增长了${result.defenderChange.toFixed(2)}cm，现在长度为${opponentDick.length.toFixed(2)}cm。`
-      
-      await session.send(resultMessage)
+      const result = await userDick.groupFight(db, config.dickData.fightEnergyCost)
+      await session.send(result)
     })
 }

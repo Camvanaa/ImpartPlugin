@@ -3,12 +3,21 @@
   "description": "",
   "version": "0.0.1",
   "main": "lib/index.js",
+  "contributors": [
+    "camvan <3499880997@qq.com>"
+  ],
+  "repository": "https://github.com/Camvanaa/ImpartPlugin.git",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
   "license": "MIT",
+  "koishi": {
+    "description": {
+      "zh": "牛牛大作战"
+    }
+  },
   "keywords": [
     "chatbot",
     "koishi",

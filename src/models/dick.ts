@@ -1,5 +1,6 @@
 import { Database } from '../database'
 import { FightCalculator } from './fightCalculator'
+import { getDickName } from '../function'
 
 export class Dick {
   private static readonly MAX_ENERGY = 240
@@ -20,49 +21,142 @@ export class Dick {
   }
   
   // 战斗功能
-  async fight(db: Database): Promise<string> {
-    const perCost = 40 // 从配置中获取
-    
-    if (this.energy < perCost) {
-      return `<at id="${this.belongings}"/> ,你都没有体力了，斗个√8毛！\n目前，你的牛子体力值为${this.energy}/${Dick.MAX_ENERGY}。`
+  async fight(db: Database, fightEnergyCost: number): Promise<string> {
+    if (this.energy < fightEnergyCost) {
+      const dickName = getDickName(this.length)
+      return `<at id="${this.belongings}"/>，你的${dickName}"${this.nickName}"，体力值不足，无法进行跨服对战！当前体力值为${this.energy}/240`
     }
     
     // 扣除体力
-    this.energy -= perCost
+    this.energy -= fightEnergyCost
     await db.updateDickEnergy(this.energy, this.guid)
     
-    // 随机匹配对手
-    const enemyDick = await db.getRandomDick(this.guid)
+    // 随机获取其他人的牛子
+    const randomDick = await db.getRandomDick(this.guid)
     
-    if (!enemyDick) {
-      return `<at id="${this.belongings}"/>，服务器内没有其他牛子！快邀请一只牛子吧！`
+    if (!randomDick) {
+      const dickName = getDickName(this.length)
+      return `<at id="${this.belongings}"/>，服务器内没有其他${dickName}！无法进行跨服对战！`
     }
     
+    // 获取对手牛子的称呼
+    const enemyDickName = getDickName(randomDick.length)
+    
+    // 计算长度差值
+    const differenceValue = this.length - randomDick.length
+    
     // 计算战斗结果
-    const result = FightCalculator.calculate(this.length, enemyDick.length, this.length - enemyDick.length)
+    const result = FightCalculator.calculate(this.length, randomDick.length, differenceValue)
     
-    const currentLength = this.length
-    this.length += result.challengerChange
+    const isWin = result.isWin
+    const challengerChange = result.challengerChange
+    const defenderChange = result.defenderChange
+    const winRatePct = result.winRatePct
     
-    const enemyCurrentLength = enemyDick.length
-    enemyDick.length += result.defenderChange
+    // 更新长度
+    this.length += challengerChange
+    randomDick.length += defenderChange
     
-    // 保存结果
+    // 获取更新后的称呼（因为长度可能改变）
+    const updatedDickName = getDickName(this.length)
+    const updatedEnemyDickName = getDickName(randomDick.length)
+    
+    // 保存数据
     await db.updateDickLength(this.length, this.guid)
-    await db.updateDickLength(enemyDick.length, enemyDick.guid)
+    await db.updateDickLength(randomDick.length, randomDick.guid)
     
-    // 生成战斗消息
-    const stringMessage1 = `<at id="${this.belongings}"/> ,你的牛子[${this.nickName}]向${enemyDick.belongings}的牛子[${enemyDick.nickName}]发起了跨服斗牛！本次斗牛消耗了${perCost}点体力，据牛科院物理研究所推测，你的牛子[${this.nickName}]胜率为${result.winRatePct.toFixed(1)}%。`
+    // 构建返回信息
+    let message = `<at id="${this.belongings}"/>\n你的${updatedDickName}[${this.nickName}]发起了一场跨服对战，对战的对象是${randomDick.belongings}的${updatedEnemyDickName}[${randomDick.nickName}]。\n你战胜的概率为${winRatePct.toFixed(1)}%。\n`
     
-    const stringMessage2 = result.isWin
-      ? `可喜可贺的是，你的牛子"${this.nickName}"在斗牛当中获得了胜利！`
-      : `不幸的是，你的牛子"${this.nickName}"在斗牛当中遗憾地失败！`
+    if (isWin) {
+      if (challengerChange > 0) {
+        message += `你赢了！你的${updatedDickName}增长了${challengerChange.toFixed(1)}cm，现在为${this.length.toFixed(1)}cm。\n对方的${updatedEnemyDickName}缩短了${Math.abs(defenderChange).toFixed(1)}cm，现在为${randomDick.length.toFixed(1)}cm。\n`
+      } else {
+        message += `你赢了！但由于某些原因你的${updatedDickName}缩短了${Math.abs(challengerChange).toFixed(1)}cm，现在为${this.length.toFixed(1)}cm。\n对方的${updatedEnemyDickName}缩短了${Math.abs(defenderChange).toFixed(1)}cm，现在为${randomDick.length.toFixed(1)}cm。\n`
+      }
+    } else {
+      if (challengerChange < 0) {
+        message += `你输了！你的${updatedDickName}缩短了${Math.abs(challengerChange).toFixed(1)}cm，现在为${this.length.toFixed(1)}cm。\n对方的${updatedEnemyDickName}增长了${defenderChange.toFixed(1)}cm，现在为${randomDick.length.toFixed(1)}cm。\n`
+      } else {
+        message += `你输了！但由于某些原因你的${updatedDickName}增长了${challengerChange.toFixed(1)}cm，现在为${this.length.toFixed(1)}cm。\n对方的${updatedEnemyDickName}增长了${defenderChange.toFixed(1)}cm，现在为${randomDick.length.toFixed(1)}cm。\n`
+      }
+    }
     
-    const stringMessage3 = `斗牛结束后，你的牛子[${this.nickName}]的长度由${currentLength.toFixed(1)}cm变化为${this.length.toFixed(1)}cm，变化了${result.challengerChange.toFixed(1)}cm；` +
-      `对方牛子[${enemyDick.nickName}]的长度由${enemyCurrentLength.toFixed(1)}cm变化为${enemyDick.length.toFixed(1)}cm，变化了${result.defenderChange.toFixed(1)}cm。`
+    message += `你的当前体力为${this.energy}/240。`
     
-    const stringMessage4 = `\n目前，你的牛子体力值为${this.energy}/${Dick.MAX_ENERGY}。`
+    return message
+  }
+
+  async groupFight(db: Database, fightEnergyCost: number): Promise<string> {
+    // 群内斗牛需要更多体力
+    const energyCost = fightEnergyCost * 1.5; 
     
-    return stringMessage1 + stringMessage2 + stringMessage3 + stringMessage4
+    if (this.energy < energyCost) {
+      const dickName = getDickName(this.length)
+      return `<at id="${this.belongings}"/>，你的${dickName}"${this.nickName}"，体力值不足，无法进行群内对战！当前体力值为${this.energy}/240`
+    }
+    
+    // 扣除体力
+    this.energy -= energyCost
+    await db.updateDickEnergy(this.energy, this.guid)
+    
+    // 随机获取同群内其他人的牛子
+    const groupDicks = await db.getDicksInGroup(this.groupNumber)
+    const opponentDicks = groupDicks.filter(d => d.belongings !== this.belongings)
+    
+    if (opponentDicks.length === 0) {
+      const dickName = getDickName(this.length)
+      return `<at id="${this.belongings}"/>，当前群内没有其他${dickName}！无法进行群内对战！`
+    }
+    
+    // 随机选择一个对手
+    const randomDick = opponentDicks[Math.floor(Math.random() * opponentDicks.length)]
+    
+    // 获取对手牛子的称呼
+    const enemyDickName = getDickName(randomDick.length)
+    
+    // 计算长度差值
+    const differenceValue = this.length - randomDick.length
+    
+    // 计算战斗结果
+    const result = FightCalculator.calculate(this.length, randomDick.length, differenceValue)
+    
+    const isWin = result.isWin
+    const challengerChange = result.challengerChange
+    const defenderChange = result.defenderChange
+    const winRatePct = result.winRatePct
+    
+    // 更新长度
+    this.length += challengerChange
+    randomDick.length += defenderChange
+    
+    // 获取更新后的称呼（因为长度可能改变）
+    const updatedDickName = getDickName(this.length)
+    const updatedEnemyDickName = getDickName(randomDick.length)
+    
+    // 保存数据
+    await db.updateDickLength(this.length, this.guid)
+    await db.updateDickLength(randomDick.length, randomDick.guid)
+    
+    // 构建返回信息
+    let message = `<at id="${this.belongings}"/>\n你的${updatedDickName}[${this.nickName}]发起了一场群内对战，对战的对象是${randomDick.belongings}的${updatedEnemyDickName}[${randomDick.nickName}]。\n你战胜的概率为${winRatePct.toFixed(1)}%。\n`
+    
+    if (isWin) {
+      if (challengerChange > 0) {
+        message += `你赢了！你的${updatedDickName}增长了${challengerChange.toFixed(1)}cm，现在为${this.length.toFixed(1)}cm。\n对方的${updatedEnemyDickName}缩短了${Math.abs(defenderChange).toFixed(1)}cm，现在为${randomDick.length.toFixed(1)}cm。\n`
+      } else {
+        message += `你赢了！但由于某些原因你的${updatedDickName}缩短了${Math.abs(challengerChange).toFixed(1)}cm，现在为${this.length.toFixed(1)}cm。\n对方的${updatedEnemyDickName}缩短了${Math.abs(defenderChange).toFixed(1)}cm，现在为${randomDick.length.toFixed(1)}cm。\n`
+      }
+    } else {
+      if (challengerChange < 0) {
+        message += `你输了！你的${updatedDickName}缩短了${Math.abs(challengerChange).toFixed(1)}cm，现在为${this.length.toFixed(1)}cm。\n对方的${updatedEnemyDickName}增长了${defenderChange.toFixed(1)}cm，现在为${randomDick.length.toFixed(1)}cm。\n`
+      } else {
+        message += `你输了！但由于某些原因你的${updatedDickName}增长了${challengerChange.toFixed(1)}cm，现在为${this.length.toFixed(1)}cm。\n对方的${updatedEnemyDickName}增长了${defenderChange.toFixed(1)}cm，现在为${randomDick.length.toFixed(1)}cm。\n`
+      }
+    }
+    
+    message += `你的当前体力为${this.energy}/240。`
+    
+    return message
   }
 } 
