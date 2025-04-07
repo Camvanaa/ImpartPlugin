@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-impart",
   "description": "",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "main": "lib/index.js",
   "contributors": [
     "camvan <3499880997@qq.com>"

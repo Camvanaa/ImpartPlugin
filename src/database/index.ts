@@ -33,6 +33,13 @@ export enum ItemType {
   // 后续可以添加更多物品类型
 }
 
+// 当前使用的牛子类型
+export enum ActiveDickType {
+  NORMAL = 'normal',
+  TRUTH = 'truth',
+  // 后续可以添加更多类型
+}
+
 // 仓库物品接口
 interface InventoryItem {
   id: number
@@ -42,6 +49,14 @@ interface InventoryItem {
   quantity: number
 }
 
+// 用户当前使用的牛子状态
+interface UserDickState {
+  id: number
+  userId: string
+  groupId: string
+  activeDickType: ActiveDickType
+}
+
 export class Database {
   private logger: Logger
   private dataDir: string
@@ -49,6 +64,7 @@ export class Database {
   private energyPath: string
   private coffeePath: string
   private inventoryPath: string
+  private userStatePath: string
   
   // 内存中缓存的数据
   private dickBasicInfos: DickBasicInfo[] = []
@@ -56,6 +72,8 @@ export class Database {
   private dickCoffees: DickCoffee[] = []
   private nextInventoryId: number = 1
   private inventoryItems: InventoryItem[] = []
+  private nextUserStateId: number = 1
+  private userDickStates: UserDickState[] = []
   
   private nextBasicInfoId = 1
   private nextEnergyId = 1
@@ -70,6 +88,7 @@ export class Database {
     this.energyPath = path.join(this.dataDir, 'dick_energy.json')
     this.coffeePath = path.join(this.dataDir, 'dick_coffee.json')
     this.inventoryPath = path.join(this.dataDir, 'inventory.json')
+    this.userStatePath = path.join(this.dataDir, 'user_state.json')
     
     // 初始化数据
     this.initializeData()
@@ -136,6 +155,20 @@ export class Database {
         this.inventoryItems = []
         await this.saveInventory()
       }
+      
+      // 尝试加载用户牛子状态数据
+      try {
+        const userStateData = await fs.readFile(this.userStatePath, 'utf-8')
+        this.userDickStates = JSON.parse(userStateData)
+        
+        if (this.userDickStates.length > 0) {
+          this.nextUserStateId = Math.max(...this.userDickStates.map(s => s.id)) + 1
+        }
+      } catch (e) {
+        // 文件不存在，创建初始数据
+        this.userDickStates = []
+        await this.saveUserState()
+      }
     } catch (e) {
       this.logger.error('初始化数据失败:', e)
     }
@@ -155,6 +188,10 @@ export class Database {
   
   private async saveInventory() {
     await fs.writeFile(this.inventoryPath, JSON.stringify(this.inventoryItems, null, 2))
+  }
+  
+  private async saveUserState() {
+    await fs.writeFile(this.userStatePath, JSON.stringify(this.userDickStates, null, 2))
   }
   
   // 获取牛子信息
@@ -599,5 +636,41 @@ export class Database {
   // 获取用户仓库物品列表
   async getInventory(userId: string, groupId: string): Promise<InventoryItem[]> {
     return this.inventoryItems.filter(i => i.userId === userId && i.groupId === groupId)
+  }
+
+  // 获取用户当前使用的牛子类型
+  async getUserActiveDickType(userId: string, groupId: string): Promise<ActiveDickType> {
+    const state = this.userDickStates.find(s => 
+      s.userId === userId && s.groupId === groupId
+    )
+    
+    return state?.activeDickType || ActiveDickType.NORMAL
+  }
+  
+  // 设置用户当前使用的牛子类型
+  async setUserActiveDickType(userId: string, groupId: string, activeDickType: ActiveDickType): Promise<boolean> {
+    try {
+      let state = this.userDickStates.find(s => 
+        s.userId === userId && s.groupId === groupId
+      )
+      
+      if (state) {
+        state.activeDickType = activeDickType
+      } else {
+        state = {
+          id: this.nextUserStateId++,
+          userId,
+          groupId,
+          activeDickType
+        }
+        this.userDickStates.push(state)
+      }
+      
+      await this.saveUserState()
+      return true
+    } catch (e) {
+      this.logger.error('设置用户牛子状态失败:', e)
+      return false
+    }
   }
 } 
