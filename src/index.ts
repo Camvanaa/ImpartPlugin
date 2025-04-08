@@ -8,6 +8,11 @@ import { ItemType, ActiveDickType } from './database/index'
 import * as useCmds from './commands/use'
 import * as fightCmds from './commands/fight'
 import * as inventoryCmds from './commands/inventory'
+import { ItemType as ImpartItemType } from './types'
+import { ImpartUser, ImpartGuild } from './database/schema'
+import * as drawCmds from './commands/draw'
+import * as collectionCmds from './commands/collection'
+import * as helpCmds from './commands/help'
 
 // 插件导出定义
 export const name = 'impart'
@@ -17,6 +22,10 @@ export const usage = '牛子插件'
 declare module 'koishi' {
   interface Context {
     impart: Database
+  }
+  interface Tables {
+    impart_users: ImpartUser
+    impart_guilds: ImpartGuild
   }
 }
 
@@ -54,6 +63,9 @@ export function apply(ctx: Context, config: Config) {
   useCmds.apply(ctx)
   fightCmds.apply(ctx)
   inventoryCmds.apply(ctx)
+  drawCmds.apply(ctx, config)
+  collectionCmds.apply(ctx)
+  helpCmds.apply(ctx)
   
   // 设置体力恢复定时任务 (6分钟恢复1点)
   const energyRecoveryInterval = 6 * 60 * 1000 // 6分钟，单位毫秒
