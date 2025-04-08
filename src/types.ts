@@ -3,19 +3,23 @@
  */
 export enum ItemType {
   // 牛子类型
-  DICK_NORMAL = 'dick_normal',
-  DICK_RARE = 'dick_rare',
-  DICK_EPIC = 'dick_epic',
-  DICK_LEGENDARY = 'dick_legendary',
-  DICK_MYTHIC = 'dick_mythic',
-  TRUTH_DICK = 'truth_dick',
+  DICK_NORMAL = 'DICK_NORMAL',
+  DICK_RARE = 'DICK_RARE',
+  DICK_EPIC = 'DICK_EPIC',
+  DICK_LEGENDARY = 'DICK_LEGENDARY',
+  DICK_MYTHIC = 'DICK_MYTHIC',
+  TRUTH_DICK = 'TRUTH_DICK',
+  YOMI_DICK = 'YOMI_DICK',  // 添加黄泉牛子类型
 
   // 蛋蛋类型
-  BALL_NORMAL = 'ball_normal',
-  BALL_RARE = 'ball_rare',
-  BALL_EPIC = 'ball_epic',
-  BALL_LEGENDARY = 'ball_legendary',
-  BALL_MYTHIC = 'ball_mythic'
+  BALL_NORMAL = 'BALL_NORMAL',
+  BALL_RARE = 'BALL_RARE',
+  BALL_EPIC = 'BALL_EPIC',
+  BALL_LEGENDARY = 'BALL_LEGENDARY',
+  BALL_MYTHIC = 'BALL_MYTHIC',
+  
+  // 其他类型
+  TICKET = 'ticket'
 }
 
 /**

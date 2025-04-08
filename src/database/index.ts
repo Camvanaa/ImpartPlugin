@@ -1,6 +1,7 @@
 import { Context, Logger } from 'koishi'
 import { resolve } from 'path'
 import { Dick } from '../models/dick'
+import { ItemType } from '../types'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 
@@ -25,12 +26,6 @@ interface DickCoffee {
   id: number
   guid: string
   lastDrinkTime: number
-}
-
-// 物品类型枚举
-export enum ItemType {
-  TRUTH_DICK = 'truth_dick',
-  // 后续可以添加更多物品类型
 }
 
 // 当前使用的牛子类型

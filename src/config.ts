@@ -36,6 +36,7 @@ export interface Config {
     ballEpic: string
     ballLegendary: string
     ballMythic: string
+    yomiDick: string
   }
   rarityNames: {
     normal: string
@@ -123,7 +124,7 @@ export const Config: Schema<Config> = Schema.object({
     })
   }),
   itemDescriptions: Schema.object({
-    truthDick: Schema.string().default('真理牛子是一种特殊的牛子，拥有强大的力量。'),
+    truthDick: Schema.string().default('蕴含真理之力的特殊牛子，蕴含对数之力，能够击穿一切虚妄。'),
     dickNormal: Schema.string().default('普通的牛子，可以通过锻炼变强。'),
     dickRare: Schema.string().default('普通的牛子，可以通过锻炼变强。'),
     dickEpic: Schema.string().default('普通的牛子，可以通过锻炼变强。'),
@@ -133,7 +134,8 @@ export const Config: Schema<Config> = Schema.object({
     ballRare: Schema.string().default('普通的蛋蛋，可以通过锻炼变强。'),
     ballEpic: Schema.string().default('普通的蛋蛋，可以通过锻炼变强。'),
     ballLegendary: Schema.string().default('普通的蛋蛋，可以通过锻炼变强。'),
-    ballMythic: Schema.string().default('普通的蛋蛋，可以通过锻炼变强。')
+    ballMythic: Schema.string().default('普通的蛋蛋，可以通过锻炼变强。'),
+    yomiDick: Schema.string().default('来自黄泉的神秘牛子，散发着幽暗的气息，造成大范围伤害。')
   }),
   rarityNames: Schema.object({
     normal: Schema.string().default('普通'),
@@ -242,7 +244,7 @@ export const config: Config = {
     }
   },
   itemDescriptions: {
-    truthDick: '真理牛子是一种特殊的牛子，拥有强大的力量。',
+    truthDick: '蕴含真理之力的特殊牛子，能够看穿一切虚妄。',
     dickNormal: '普通的牛子，可以通过锻炼变强。',
     dickRare: '普通的牛子，可以通过锻炼变强。',
     dickEpic: '普通的牛子，可以通过锻炼变强。',
@@ -252,7 +254,8 @@ export const config: Config = {
     ballRare: '普通的蛋蛋，可以通过锻炼变强。',
     ballEpic: '普通的蛋蛋，可以通过锻炼变强。',
     ballLegendary: '普通的蛋蛋，可以通过锻炼变强。',
-    ballMythic: '普通的蛋蛋，可以通过锻炼变强。'
+    ballMythic: '普通的蛋蛋，可以通过锻炼变强。',
+    yomiDick: '来自黄泉的神秘牛子，散发着幽暗的气息，据说能够沟通生死。'
   },
   rarityNames: {
     normal: '普通',

@@ -1,5 +1,5 @@
 import { Context } from 'koishi'
-import { ItemType } from '../database/index'
+import { ItemType } from '../types'
 import { Config } from '../config'
 
 export class DescriptionManager {

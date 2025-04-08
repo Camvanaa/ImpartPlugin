@@ -1,5 +1,6 @@
 import { Context } from 'koishi'
-import { Database, ItemType } from '../database'
+import { Database } from '../database'
+import { ItemType } from '../types'
 
 export function apply(ctx: Context) {
   const db = ctx.impart as Database

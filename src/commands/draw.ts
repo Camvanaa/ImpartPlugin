@@ -2,6 +2,7 @@ import { Context } from 'koishi'
 import { Database } from '../database'
 import { ItemType, Rarity, Item, ItemAttributes, ItemSkill } from '../types'
 import { randomUUID } from 'crypto'
+import { Config } from '..'
 
 // 抽卡池类型
 enum DrawPoolType {
@@ -39,11 +40,11 @@ const DRAW_RATES = {
 const SINGLE_DRAW_TICKETS = 1
 // 十连抽所需票数
 const TEN_DRAW_TICKETS = 10
+export function apply(ctx: Context, config: Config) {
+    // 抽卡命令
+    ctx.command('dick.draw [count:number] [pool:string]')
+      .action(async ({ session }, count = 1, pool = DrawPoolType.NORMAL) => {
 
-export function apply(ctx: Context) {
-  // 抽卡命令
-  ctx.command('dick.draw [count:number] [pool:string]')
-    .action(async ({ session }, count = 1, pool = DrawPoolType.NORMAL) => {
       if (!session?.userId) return '请在群聊中使用此命令'
       
       const db = ctx.root.impart as Database
@@ -52,20 +53,22 @@ export function apply(ctx: Context) {
 
       // 检查票数是否足够
       const requiredTickets = count === 10 ? TEN_DRAW_TICKETS : SINGLE_DRAW_TICKETS * count
-      const userTickets = await db.getUserTickets(userId, guildId)
+      const inventory = await db.getInventory(userId, guildId)
+      const userTickets = inventory.find(item => item.itemType === ItemType.TICKET)?.quantity || 0
+      
       if (userTickets < requiredTickets) {
         return `票数不足！需要 ${requiredTickets} 张票，当前拥有 ${userTickets} 张票`
       }
 
       // 扣除票数
-      await db.updateUserTickets(userId, guildId, -requiredTickets)
+      await db.removeItem(userId, guildId, ItemType.TICKET, requiredTickets)
 
       // 执行抽卡
       const results = await drawItems(count, pool as DrawPoolType)
       
       // 保存抽到的物品
       for (const item of results) {
-        await db.addItemToUser(userId, guildId, item)
+        await db.addItem(userId, guildId, item.type, 1)
       }
 
       // 生成结果消息
