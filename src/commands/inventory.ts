@@ -6,6 +6,7 @@ export function apply(ctx: Context) {
   const db = ctx.impart as Database
   
   ctx.command('dick.inventory', '查看牛子物品仓库')
+    .alias('dick.inv')
     .action(async ({ session }) => {
       if (!session.guildId || !session.userId) return
       
