@@ -10,7 +10,7 @@ export function apply(ctx: Context) {
       if (!session.guildId || !session.userId) return
       
       if (!itemName) {
-        return `请指定要使用的物品名称`
+        return `请输入要使用的物品名称`
       }
       
       // 检查用户是否有牛子
