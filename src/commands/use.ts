@@ -1,5 +1,6 @@
 import { Context } from 'koishi'
-import { ActiveDickType, Database, ItemType } from '../database'
+import { ActiveDickType, Database} from '../database'
+import { ItemType } from '../types'
 import { getDickName } from '../function'
 
 export function apply(ctx: Context) {
